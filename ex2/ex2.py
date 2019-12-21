@@ -42,10 +42,10 @@ def init():
     """
     impl. init part (specifically (e) and (f))of the pdf
     """
-    setOutputInfo("Output5", V)  # (e)
+    setOutputInfo("Output5", V)  # (e), 300,000
 
     p_uniform = 1/V
-    setOutputInfo("Output6", p_uniform)  # (f)
+    setOutputInfo("Output6", p_uniform)  # (f), uniform distribution
 
 
 def events2Dict(set_file_name):
