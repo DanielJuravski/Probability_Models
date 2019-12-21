@@ -6,7 +6,9 @@ DEV = True
 OUTPUTS = {}  # global dict of outputs
 V = 300000  # given vocab size
 ### Globals end ###
-
+S = 0
+dev_tokens = []
+test_tokens = []
 
 def setOutputInfo(keyName, value):
     """
@@ -48,7 +50,7 @@ def init():
     setOutputInfo("Output6", p_uniform)  # (f), uniform distribution
 
 
-def events2Dict(set_file_name):
+def events2Dict(set_file_name, tokens):
     """
     scan the articles txt, every word that appears in the article, push into the dict and increase it's counter by 1.
     """
@@ -63,20 +65,23 @@ def events2Dict(set_file_name):
             else:
                 # the line is article
                 for word in line.split():
+                    tokens.append(word)
                     if word in d:
                         d[word] += 1
                     else:
                         d[word] = 1
 
-    return d
+    return d, tokens
 
 
 def loadSets(dev_set_file_name, test_set_file_name):
     """
     Load the data sets files into event objects (dicts)
     """
-    dev_events = events2Dict(dev_set_file_name)
-    test_events = events2Dict(test_set_file_name)
+    global dev_tokens
+    global test_tokens
+    dev_events, dev_tokens = events2Dict(dev_set_file_name, dev_tokens)
+    test_events, test_tokens = events2Dict(test_set_file_name, test_tokens)
 
     return dev_events, test_events
 
@@ -96,11 +101,30 @@ def devSetPreProcessing(dev_events):
     impl. Development set preprocessing part of the pdf
     iterate the events dict, summerise the keys instances
     """
-    events_number = 0
-    for key, val in dev_events.items():
-        events_number += val
+    global S
+    S = sum([val for key, val in dev_events.items()])
 
-    setOutputInfo("Output7", events_number)
+    setOutputInfo("Output7", S)
+
+def createTrainValSet(dev_events, input_word):
+    """
+        Split dev into train (90%) and val(10%) sets of the total words (not events).
+        Meaning we count also the number of times each word appears until reaching 90%.
+    """
+    train = dev_tokens[0: round(0.90*S)]
+    val = dev_tokens[round(0.90*S):]
+    train_set = set(train)
+    val_set = set(val)
+
+    input_word_freq = dev_events[input_word] if input_word in dev_events else 0
+    setOutputInfo("Output8", len(val)) #I know in the pdf he says events, but then output 10 would be the same as 9 :/
+    setOutputInfo("Output9", len(train))
+    setOutputInfo("Output10", len(train_set))
+    setOutputInfo("Output11", input_word_freq)
+
+    return train_set, val_set
+
+
 
 
 
@@ -109,6 +133,7 @@ if __name__ == '__main__':
     init()
     dev_events, test_events = loadSets(dev_set_file_name, test_set_file_name)
     devSetPreProcessing(dev_events)
+    train_set, val_set = createTrainValSet(dev_events, input_word)
 
     printOutput(output_file_name)
 
