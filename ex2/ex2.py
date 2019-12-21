@@ -121,6 +121,8 @@ def createTrainValSet(dev_events, input_word):
     setOutputInfo("Output9", len(train))
     setOutputInfo("Output10", len(train_set))
     setOutputInfo("Output11", input_word_freq)
+    setOutputInfo("Output12", input_word_freq / len(train))
+    setOutputInfo("Output13", 0 / len(train))
 
     return train_set, val_set
 
