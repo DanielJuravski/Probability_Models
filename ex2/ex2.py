@@ -1,11 +1,16 @@
 import sys
+import numpy as np
+import math
+import datetime
 
 
 DEV = True
 ### Globals start ###
 OUTPUTS = {}  # global dict of outputs
 V = 300000  # given vocab size
+UNK_WORD = "unseen-word"
 ### Globals end ###
+
 
 class Data:
     def __init__(self):
@@ -14,12 +19,14 @@ class Data:
         self.test_tokens = 0
         self.train_set = set()
         self.val_set = set()
-        self.train = []
-        self.val = []
+        self.dev4train = []
+        self.dev4val = []
         self.dev_events = {}
         self.test_events = {}
 
+
 data = Data()
+
 
 def setOutputInfo(keyName, value):
     """
@@ -53,7 +60,7 @@ def getArgs():
 
 def init():
     """
-    impl. init part (specifically (e) and (f))of the pdf
+    impl. init part (specifically (e) and (f)) of the pdf
     """
     setOutputInfo("Output5", V)  # (e), 300,000
 
@@ -90,9 +97,7 @@ def loadSets(dev_set_file_name, test_set_file_name):
     Load the data sets files into event objects (dicts)
     """
     data.dev_events, data.dev_tokens = events2Dict(dev_set_file_name, [])
-    data.test_events, data.val_tokens = events2Dict(test_set_file_name, [])
-
-
+    data.test_events, data.test_tokens = events2Dict(test_set_file_name, [])
 
 
 def printOutput(output_file_name):
@@ -113,36 +118,111 @@ def devSetPreProcessing():
 
     setOutputInfo("Output7", data.S)
 
-def createTrainValSet(input_word):
+
+def getWordLidstone(input_word, lam):
+    p_lid = (getWordFreq(input_word) + lam) / (len(data.dev4train) + lam * V)
+
+    return p_lid
+
+
+def getWordFreq(input_word):
+    input_word_freq = data.dev4train_dict[input_word] if input_word in data.dev4train else 0
+
+    return input_word_freq
+
+
+def getPerplexity(lam):
+    sum = 0
+
+    deb =0
+
+    for word in data.dev4val:
+        print("perp iter start: " + str(datetime.datetime.now().time()))
+        p = getWordLidstone(word, lam)
+        # log_p = np.log2(p)
+        log_p = math.log(p, 2)
+        sum += log_p
+        if deb < 6:
+            # print(word)
+            # print(p)
+            # print(log_p)
+            # print(sum)
+            deb +=1
+        print("perp iter end: " + str(datetime.datetime.now().time()))
+
+    # print(p)
+    # print(log_p)
+    # print(sum)
+
+    avg = (-1/len(data.dev4val)) * sum
+    # prep = np.power(2, avg)
+    prep = 2 ** avg
+
+    return prep
+
+
+def list2dict(list):
+    d = dict()
+
+    for word in list:
+        if word in d:
+            d[word] += 1
+        else:
+            d[word] = 1
+
+    return d
+
+
+def lidstonePart(input_word):
     """
-        Split dev into train (90%) and val(10%) sets of the total words (not events).
-        Meaning we count also the number of times each word appears until reaching 90%.
+    Split dev into train (90%) and val(10%) sets of the total words (not events).
+    Meaning we count also the number of times each word appears until reaching 90%.
     """
-    data.train = data.dev_tokens[0: round(0.90*data.S)]
-    data.val = data.dev_tokens[round(0.90*data.S):]
-    data.train_set = set(data.train)
-    data.val_set = set(data.val)
+    data.dev4train = data.dev_tokens[0: round(0.90*data.S)]
+    data.dev4val = data.dev_tokens[round(0.90*data.S):]
+    data.dev4train_set = set(data.dev4train)
+    data.dev4val_set = set(data.dev4val)
+    data.dev4train_dict = list2dict(data.dev4train)
+    data.dev4val_dict = list2dict(data.dev4val)
 
-    input_word_freq = data.dev_events[input_word] if input_word in data.dev_events else 0
-    setOutputInfo("Output8", len(data.val)) #I know in the pdf he says events, but then output 10 would be the same as 9 :/
-    setOutputInfo("Output9", len(data.train))
-    setOutputInfo("Output10", len(data.train_set))
-    setOutputInfo("Output11", input_word_freq)
-    setOutputInfo("Output12", input_word_freq / len(data.train))
-    setOutputInfo("Output13", 0 / len(data.train))
+    setOutputInfo("Output8", len(data.dev4val))
+    setOutputInfo("Output9", len(data.dev4train))
+    setOutputInfo("Output10", len(data.dev4train_set))
+    setOutputInfo("Output11", getWordFreq(input_word))
+    setOutputInfo("Output12", getWordFreq(input_word) / len(data.dev4train))
+    setOutputInfo("Output13", getWordFreq(UNK_WORD) / len(data.dev4train))
 
+    p_lid = getWordLidstone(input_word, lam=0.10)
+    setOutputInfo("Output14", p_lid)
 
+    p_lid = getWordLidstone(UNK_WORD, lam=0.10)
+    setOutputInfo("Output15", p_lid)
 
+    perplexity = getPerplexity(0.01)
+    setOutputInfo("Output16", perplexity)
 
+    # perplexity = getPerplexity(0.10)
+    # setOutputInfo("Output17", perplexity)
+    #
+    # perplexity = getPerplexity(1.00)
+    # setOutputInfo("Output18", perplexity)
 
 
 if __name__ == '__main__':
-    dev_set_file_name, test_set_file_name, input_word, output_file_name = getArgs() #1-4
-    init() #5-6
+    if DEV:
+        print("Start: ")
+        print(datetime.datetime.now().time())
+
+    dev_set_file_name, test_set_file_name, input_word, output_file_name = getArgs()  # 1-4
+    init()  # 5-6
     loadSets(dev_set_file_name, test_set_file_name)
-    devSetPreProcessing() #7
-    createTrainValSet(input_word) #8-13
+    devSetPreProcessing()  # 7
+    lidstonePart(input_word)  # 8-13
 
     printOutput(output_file_name)
+
+    if DEV:
+        print("\nEnd: ")
+        print(datetime.datetime.now().time())
 
 
