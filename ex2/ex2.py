@@ -2,6 +2,7 @@ import sys
 import numpy as np
 import math
 import datetime
+from collections import defaultdict
 
 
 DEV = True
@@ -23,6 +24,8 @@ class Data:
         self.dev4val = []
         self.dev_events = {}
         self.test_events = {}
+        self.dev4train_dict = {}
+        self.dev4val_dict = {}
 
 
 data = Data()
@@ -73,7 +76,7 @@ def events2Dict(set_file_name, tokens):
     scan the articles txt, every word that appears in the article, push into the dict and increase it's counter by 1.
     """
 
-    d = dict()
+    d = defaultdict(int)
     with open(set_file_name, 'r') as f:
         lines = f.readlines()
         for line in lines:
@@ -126,7 +129,7 @@ def getWordLidstone(input_word, lam):
 
 
 def getWordFreq(input_word):
-    input_word_freq = data.dev4train_dict[input_word] if input_word in data.dev4train else 0
+    input_word_freq = data.dev4train_dict[input_word] if input_word in data.dev4train_dict else 0
 
     return input_word_freq
 
@@ -134,35 +137,22 @@ def getWordFreq(input_word):
 def getPerplexity(lam):
     sum = 0
 
-    deb =0
-
     for word in data.dev4val:
-        print("perp iter start: " + str(datetime.datetime.now().time()))
         p = getWordLidstone(word, lam)
-        # log_p = np.log2(p)
-        log_p = math.log(p, 2)
+        if p == 0:
+            log_p = -float("inf")  # log(0) == -inf
+        else:
+            log_p = np.log2(p)
         sum += log_p
-        if deb < 6:
-            # print(word)
-            # print(p)
-            # print(log_p)
-            # print(sum)
-            deb +=1
-        print("perp iter end: " + str(datetime.datetime.now().time()))
-
-    # print(p)
-    # print(log_p)
-    # print(sum)
 
     avg = (-1/len(data.dev4val)) * sum
-    # prep = np.power(2, avg)
-    prep = 2 ** avg
+    prep = np.power(2, avg)
 
     return prep
 
 
 def list2dict(list):
-    d = dict()
+    d = defaultdict(int)
 
     for word in list:
         if word in d:
@@ -171,6 +161,24 @@ def list2dict(list):
             d[word] = 1
 
     return d
+
+
+def findBestLam():
+    min_perp = float("inf")
+    best_lam = 0
+    curr_lam = 0
+
+    while (curr_lam <= 2):
+        cand_perp = getPerplexity(curr_lam)
+        if cand_perp < min_perp:
+            min_perp = cand_perp
+            best_lam = curr_lam
+
+        curr_lam += 0.01
+
+    best_lam = round(best_lam, 2)
+
+    return best_lam, min_perp
 
 
 def lidstonePart(input_word):
@@ -201,11 +209,15 @@ def lidstonePart(input_word):
     perplexity = getPerplexity(0.01)
     setOutputInfo("Output16", perplexity)
 
-    # perplexity = getPerplexity(0.10)
-    # setOutputInfo("Output17", perplexity)
-    #
-    # perplexity = getPerplexity(1.00)
-    # setOutputInfo("Output18", perplexity)
+    perplexity = getPerplexity(0.10)
+    setOutputInfo("Output17", perplexity)
+
+    perplexity = getPerplexity(1.00)
+    setOutputInfo("Output18", perplexity)
+
+    best_lam, min_perp = findBestLam()
+    setOutputInfo("Output19", best_lam)
+    setOutputInfo("Output20", min_perp)
 
 
 if __name__ == '__main__':
