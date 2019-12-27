@@ -1,3 +1,12 @@
+'''
+HW2 for Probabilistic Models Course
+
+Students: Daniela Stepanov Daniel Juravski 308221720 ---
+
+29/12
+
+'''
+
 import sys
 import numpy as np
 import math
@@ -35,6 +44,7 @@ class Data:
         self.dict_r_keys = {}
         self.dev4HO_T_set = set()
         self.dev4HO_H_set = set()
+        self.best_lam = 0.0
 
 
 data = Data()
@@ -112,13 +122,19 @@ def loadSets(dev_set_file_name, test_set_file_name):
     data.test_events, data.test_tokens = events2Dict(test_set_file_name, [])
 
 
-def printOutput(output_file_name):
+def printOutput(output_file_name, table_items):
     with open(output_file_name, 'w') as f:
+        f.write("#Students" + '\t'+ "Daniela Stepanov" + '\t' + "Daniel Juravski" + '\t' + '308221720' + '\t' + '---' + '\n')
+
         for key, val in OUTPUTS.items():
             out_print = "#" + key + '\t' + str(val) + '\n'
             f.write(out_print)
             if DEV:
                 print(out_print, end="")
+
+        for i, (fl, fho, nr, tr) in enumerate(table_items):
+            f.write(str(i) + '\t' + str(fl) + '\t' + str(fho) + '\t' + str(nr) + '\t' + str(tr) + '\n')
+
 
 
 def devSetPreProcessing():
@@ -149,11 +165,11 @@ def getWordHOFreq(input_word):
     return input_word_freq
 
 
-def getPerplexity(lam):
+def getPerplexity(smoothF, lam):
     sum = 0
 
     for word in data.dev4Lid_val:
-        p = getWordLidstone(word, lam)
+        p = smoothF(word, lam)
         if p == 0:
             log_p = -float("inf")  # log(0) == -inf
         else:
@@ -165,6 +181,21 @@ def getPerplexity(lam):
 
     return prep
 
+def getPerplexityTest(smoothF, lam):
+    sum = 0
+
+    for word in data.test_tokens:
+        p = smoothF(word, lam)
+        if p == 0:
+            log_p = -float("inf")  # log(0) == -inf
+        else:
+            log_p = np.log2(p)
+        sum += log_p
+
+    avg = (-1/len(data.test_tokens)) * sum
+    prep = np.power(2, avg)
+
+    return prep
 
 def list2dict(list):
     d = defaultdict(int)
@@ -184,7 +215,7 @@ def findBestLam():
     curr_lam = 0
 
     while (curr_lam <= 2):
-        cand_perp = getPerplexity(curr_lam)
+        cand_perp = getPerplexity(getWordLidstone, curr_lam)
         if cand_perp < min_perp:
             min_perp = cand_perp
             best_lam = curr_lam
@@ -192,7 +223,7 @@ def findBestLam():
         curr_lam += 0.01
 
     best_lam = round(best_lam, 2)
-
+    data.best_lam = best_lam
     return best_lam, min_perp
 
 
@@ -221,13 +252,13 @@ def lidstonePart(input_word):
     p_lid = getWordLidstone(UNK_WORD, lam=0.10)
     setOutputInfo("Output15", p_lid)
 
-    perplexity = getPerplexity(0.01)
+    perplexity = getPerplexity(getWordLidstone, 0.01)
     setOutputInfo("Output16", perplexity)
 
-    perplexity = getPerplexity(0.10)
+    perplexity = getPerplexity(getWordLidstone, 0.10)
     setOutputInfo("Output17", perplexity)
 
-    perplexity = getPerplexity(1.00)
+    perplexity = getPerplexity(getWordLidstone, 1.00)
     setOutputInfo("Output18", perplexity)
 
     best_lam, min_perp = findBestLam()
@@ -258,9 +289,6 @@ def initHODicts():
     r_set = set(data.dev4HO_T_dict.values())  # (r1, r2, ..., r_n)
     dict_r_keys = dict()  # {r_x -> [word1, word2, .., word_n]}
 
-    r0_set = data.dev4HO_H_set - data.dev4HO_T_set
-    dict_r_keys[0] = r0_set
-    r_set.add(0)
 
     for k,v in data.dev4HO_T_dict.items():
         if v in dict_r_keys:
@@ -268,33 +296,40 @@ def initHODicts():
         else:
             dict_r_keys[v] = [k]
 
+    dict_r_tr[0] = 0
     for r in r_set:
         tr = 0
         for word in dict_r_keys[r]:
-            tr += data.dev4HO_H_dict[word]
+            if word in data.dev4HO_H_dict:
+                tr += data.dev4HO_H_dict[word]
         dict_r_tr[r] = tr
 
         nr = len(dict_r_keys[r])
         dict_r_nr[r] = nr
 
+    for word in data.dev4HO_H_set:
+        if word not in data.dev4HO_T_dict:
+            dict_r_tr[0] += data.dev4HO_H_dict[word]
+
+    dict_r_nr[0] = V - len(data.dev4HO_T_dict)
     data.dict_r_tr = dict_r_tr
     data.dict_r_nr = dict_r_nr
     data.dict_r_keys = dict_r_keys
 
 
-def getWordHO(input_word):
+def getWordHO(input_word, lam=False):
     word_r = getWordHOFreq(input_word)
     tr = data.dict_r_tr[word_r]
     nr = data.dict_r_nr[word_r]
 
-    p = (tr / nr) / len(data.dev4HO_H_set)
+    p = (tr / nr) / len(data.dev4HO_H)
 
     return p
 
 
 def heldOutPart(input_word):
-    data.dev4HO_T = data.dev_tokens[0: round(0.5*data.S)]
-    data.dev4HO_H = data.dev_tokens[round(0.5*data.S):]
+    data.dev4HO_T = data.dev_tokens[0: round(0.5*data.S)] #train data
+    data.dev4HO_H = data.dev_tokens[round(0.5*data.S):] #heldout data
     data.dev4HO_T_set = set(data.dev4HO_T)
     data.dev4HO_H_set = set(data.dev4HO_H)
     data.dev4HO_T_dict = list2dict(data.dev4HO_T)
@@ -311,23 +346,67 @@ def heldOutPart(input_word):
     p_ho = getWordHO(UNK_WORD)
     setOutputInfo("Output24", p_ho)
 
+def testPart(input_word):
+    data.test_dict = list2dict(data.test_tokens)
+
+    setOutputInfo("Output25", len(data.test_tokens))
+
+    perpL = getPerplexityTest(getWordLidstone, data.best_lam)
+    setOutputInfo("Output26", perpL)
+
+    perpHO = getPerplexityTest(getWordHO, data.best_lam)
+    setOutputInfo("Output27", perpHO)
+
+    bestP = 'H' if perpHO < perpL else 'L'
+    setOutputInfo("Output28", bestP)
+
+def tablePart():
+    print(data.best_lam)
+    fl = [round((i + data.best_lam) * len(data.dev4Lid_train) / (len(data.dev4Lid_train) + data.best_lam * V), 5) for i in range(10)]
+    fho = [round(data.dict_r_tr[i] * len(data.dev4HO_T) / (len(data.dev4HO_H) * data.dict_r_nr[i]), 5) for i in range(10)]
+    Nr = [data.dict_r_nr[i] for i in range(10)]
+    Tr = [int(data.dict_r_tr[i]) for i in range(10)]
+
+    setOutputInfo("Output29", "")
+    return zip(fl, fho, Nr, Tr)
+
 
 if __name__ == '__main__':
-    if DEV:
-        print("Start: ")
-        print(datetime.datetime.now().time())
 
     dev_set_file_name, test_set_file_name, input_word, output_file_name = getArgs()  # 1-4
     init()  # 5-6
     loadSets(dev_set_file_name, test_set_file_name)
     devSetPreProcessing()  # 7
-    # lidstonePart(input_word)  # 8-13
+    lidstonePart(input_word)  # 8-13
     heldOutPart(input_word)  # 21-24
 
-    printOutput(output_file_name)
+    # -Debug- p(x*)n0 + sum(all x > 0)p(x) = 1
 
-    if DEV:
-        print("\nEnd: ")
-        print(datetime.datetime.now().time())
+    #lidstone
+    Nr0 = (V - len(data.dev4Lid_train_dict))* getWordLidstone(UNK_WORD, lam=data.best_lam)
+    debug_lidstone = 0
+    for word in data.dev4Lid_train_dict: #sum of P for all x in train with p > 0.
+        debug_lidstone += getWordLidstone(word, lam=data.best_lam)
+
+    debug_lidstone += Nr0
+    if round(debug_lidstone, 4) != 1:
+        print("debug lidstone does not sum to 1 ", debug_lidstone)
+
+    #print(round(debug_lidstone, 4))
+
+    #Heldout
+    Nr0 = float((V - len(data.dev4Lid_train_dict)) * getWordHO(UNK_WORD))
+    debug_heldout = 0
+    for word in data.dev4Lid_train_dict:  # sum of P for all x in train with p > 0.
+        debug_heldout += float(getWordHO(word))
+    debug_heldout += Nr0
+    if round(debug_heldout, 5) != 1:
+        print("debug heldout does not sum to 1 ", debug_heldout)
+
+    testPart(input_word)
+    table_items = tablePart()
+
+    printOutput(output_file_name, table_items)
+
 
 
