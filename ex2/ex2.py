@@ -1,7 +1,8 @@
 '''
+Students: Daniela Stepanov Daniel Juravski 308221720 206082323
+
 HW2 for Probabilistic Models Course
 
-Students: Daniela Stepanov Daniel Juravski 308221720 ---
 
 29/12
 
@@ -124,7 +125,7 @@ def loadSets(dev_set_file_name, test_set_file_name):
 
 def printOutput(output_file_name, table_items):
     with open(output_file_name, 'w') as f:
-        f.write("#Students" + '\t'+ "Daniela Stepanov" + '\t' + "Daniel Juravski" + '\t' + '308221720' + '\t' + '---' + '\n')
+        f.write("#Students" + '\t'+ "Daniela Stepanov" + '\t' + "Daniel Juravski" + '\t' + '308221720' + '\t' + '206082323' + '\n')
 
         for key, val in OUTPUTS.items():
             out_print = "#" + key + '\t' + str(val) + '\n'
