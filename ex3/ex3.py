@@ -40,7 +40,7 @@ def getArgs():
         print("[INFO] Loading argument")
         develop_file_name = sys.argv[1]
     else:
-        develop_file_name = 'develop.txt'
+        develop_file_name = 'develop_10.txt'
         if not (os.path.exists(develop_file_name)):
             print("[ERROR] No arguments were supplied and {0} file wasn't found in the current directory, exiting.".format(develop_file_name))
             exit(1)
@@ -161,7 +161,7 @@ def initData(documents, V_dict):
 
 def iterateAlpha(data):
     time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-    print("[INFO] iterateAlpha time: {0}".format(time))
+    print("[INFO] [iterateAlpha] start time: {0}".format(time))
     for i in range(data.C):
         # for doc in documents:
         sum = np.sum(data.w[:,i])
@@ -171,38 +171,41 @@ def iterateAlpha(data):
         data.alpha[i] = sum
 
     data.alpha /= np.sum(data.alpha)
+
+    time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    print("[INFO] [iterateAlpha] end time: {0}".format(time))
     print("[INFO] [iterateAlpha] sum of Alpha vector: {0} (should be {1})".format(np.sum(data.alpha), 1))
 
 
 def iterateP(data, documents):
     time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-    print("[INFO] iterateP time: {0}".format(time))
+    print("[INFO] [iterateP] start time: {0}".format(time))
     for i in range(data.C):
-        for k, k_word in enumerate(data.V_dict):
-            p_i = np.random.random(data.V)  # random vector
-            sum_p_i = 0
-            for n in range(data.N):
-                w_ti = data.w[n, i]
-                n_tk = getDocumentWordFreq(documents[n], k_word)
+        p_i = np.random.random(data.V)  # random vector
+        sum_p_i = 0
+        for n in range(data.N):
+            p_i = np.full(data.V, LAMBDA)  # random vector
+            w_ti = data.w[n, i]
+            for word, freq in documents[n].n_tk.items():
+                n_tk = freq
+                p_i[data.w2i[word]] = w_ti * n_tk + LAMBDA
+            sum_p_i = np.sum(p_i)
 
-                p_i[k] = w_ti * n_tk + LAMBDA
-                sum_p_i = np.sum(p_i)
-
-            p_ik = p_i/sum_p_i
-
+        p_ik = p_i/sum_p_i
         data.P[i,:] = p_ik
+
+    time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    print("[INFO] [iterateP] end time: {0}".format(time))
     print("[INFO] [iterateP] sum of P matrix: {0} (should be {1})".format(np.sum(data.P), data.C))
 
 
 def mStep(data, documents):
-    time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-    print("[INFO] mStep time: {0}".format(time))
     iterateAlpha(data)
     iterateP(data, documents)
 
 
 def getDocumentWordFreq(document, k_word):
-    if k_word  not in document.n_tk:
+    if k_word not in document.n_tk:
         freq = 0
     else:
         freq = document.n_tk[k_word]
@@ -225,6 +228,8 @@ def calcZ(data, documents, n, i):
 
 
 def iterateW(data, documents):
+    time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    print("[INFO] [iterateW] start time: {0}".format(time))
     for n in range(data.N):
         z_j = np.random.random(data.C)  # random vector
         for i in range(data.C):
@@ -243,18 +248,18 @@ def iterateW(data, documents):
         cand_w_ti = e_zi/sum_j
         data.w[n,:] = cand_w_ti
 
+    time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    print("[INFO] [iterateW] end time: {0}".format(time))
     print("[INFO] [iterateW] sum of w matrix: {0} (should be {1})".format(np.sum(data.w), data.N))
 
 
 def eStep(data, documents):
-    time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-    print("[INFO] eStep time: {0}".format(time))
     iterateW(data, documents)
 
 
 def calcLL(data, documents):
     time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-    print("[INFO] LL time: {0}".format(time))
+    print("[INFO] [calcLL] start time: {0}".format(time))
     sum_t = 0
     for n in range(data.N):
         z_j = np.random.random(data.C)  # random vector
@@ -270,6 +275,9 @@ def calcLL(data, documents):
         value = m + np.log(sum_j)
         sum_t += value
 
+    time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    print("[INFO] [calcLL] start time: {0}".format(time))
+
     return sum_t
 
 
@@ -284,7 +292,7 @@ if __name__ == '__main__':
         eStep(data, documents)
         mStep(data, documents)
         ll = calcLL(data, documents)
-        print("\tIter: {0} LL:{1}".format(iter, ll))
+        print("\tIter:{0} LL:{1}".format(iter, ll))
 
 
 
