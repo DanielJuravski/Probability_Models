@@ -24,7 +24,8 @@ class Data:
         self.C = 9  # number of clusters (topics)
         self.N = 0  # number of documents
         self.V = 0  # vocab size
-        self.V_dict = dict() # dict of words and freq
+        self.V_dict = dict()  # dict of words and freq
+        self.w2i = dict()  # mapping of V_dict words to indexes
         self.alpha = None  # vector of P(C_i)
         self.P = None  # matrix of P(W_k|C_i)
         self.w = None  # matrix of P(C_i|Y_t)
@@ -126,6 +127,10 @@ def initData(documents, V_dict):
     data.V = V
     data.V_dict = V_dict
 
+    # init w2i mapping
+    for i, w in enumerate(V_dict):
+        data.w2i[w] = i
+
     # init *alpha* vector
     alpha = np.random.random(data.C)  # random vector
     alpha /= alpha.sum()  # normalize to sum-to-1 vector
@@ -166,7 +171,7 @@ def iterateAlpha(data):
         data.alpha[i] = sum
 
     data.alpha /= np.sum(data.alpha)
-    print("[INFO] iterateAlpha sum of Alpha vector: {0}".format(np.sum(data.alpha)))
+    print("[INFO] [iterateAlpha] sum of Alpha vector: {0} (should be {1})".format(np.sum(data.alpha), 1))
 
 
 def iterateP(data, documents):
@@ -174,17 +179,19 @@ def iterateP(data, documents):
     print("[INFO] iterateP time: {0}".format(time))
     for i in range(data.C):
         for k, k_word in enumerate(data.V_dict):
-            enum_sum = denum_sum = 0
+            p_i = np.random.random(data.V)  # random vector
+            sum_p_i = 0
             for n in range(data.N):
                 w_ti = data.w[n, i]
                 n_tk = getDocumentWordFreq(documents[n], k_word)
-                n_t = documents[n].n_t
-                enum = w_ti * n_tk
-                denum = w_ti * n_t
-                enum_sum += enum
-                denum_sum += denum
-            value = (enum_sum + LAMBDA) / (denum_sum + data.V * LAMBDA)
-            data.P[i,k] = value
+
+                p_i[k] = w_ti * n_tk + LAMBDA
+                sum_p_i = np.sum(p_i)
+
+            p_ik = p_i/sum_p_i
+
+        data.P[i,:] = p_ik
+    print("[INFO] [iterateP] sum of P matrix: {0} (should be {1})".format(np.sum(data.P), data.C))
 
 
 def mStep(data, documents):
@@ -236,6 +243,8 @@ def iterateW(data, documents):
         cand_w_ti = e_zi/sum_j
         data.w[n,:] = cand_w_ti
 
+    print("[INFO] [iterateW] sum of w matrix: {0} (should be {1})".format(np.sum(data.w), data.N))
+
 
 def eStep(data, documents):
     time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
@@ -275,7 +284,7 @@ if __name__ == '__main__':
         eStep(data, documents)
         mStep(data, documents)
         ll = calcLL(data, documents)
-        print("Iter: {0} LL:{1}".format(iter, ll))
+        print("\tIter: {0} LL:{1}".format(iter, ll))
 
 
 
