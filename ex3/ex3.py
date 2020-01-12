@@ -40,7 +40,7 @@ def getArgs():
         print("[INFO] Loading argument")
         develop_file_name = sys.argv[1]
     else:
-        develop_file_name = 'develop_10.txt'
+        develop_file_name = 'develop.txt'
         if not (os.path.exists(develop_file_name)):
             print("[ERROR] No arguments were supplied and {0} file wasn't found in the current directory, exiting.".format(develop_file_name))
             exit(1)
@@ -160,7 +160,7 @@ def initData(documents, V_dict):
 
 
 def iterateAlpha(data):
-    time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    time = strftime("%H:%M:%S", gmtime())
     print("[INFO] [iterateAlpha] start time: {0}".format(time))
     for i in range(data.C):
         # for doc in documents:
@@ -172,13 +172,13 @@ def iterateAlpha(data):
 
     data.alpha /= np.sum(data.alpha)
 
-    time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    time = strftime("%H:%M:%S", gmtime())
     print("[INFO] [iterateAlpha] end time: {0}".format(time))
     print("[INFO] [iterateAlpha] sum of Alpha vector: {0} (should be {1})".format(np.sum(data.alpha), 1))
 
 
 def iterateP(data, documents):
-    time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    time = strftime("%H:%M:%S", gmtime())
     print("[INFO] [iterateP] start time: {0}".format(time))
     for i in range(data.C):
         p_i = np.random.random(data.V)  # random vector
@@ -194,7 +194,7 @@ def iterateP(data, documents):
         p_ik = p_i/sum_p_i
         data.P[i,:] = p_ik
 
-    time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    time = strftime("%H:%M:%S", gmtime())
     print("[INFO] [iterateP] end time: {0}".format(time))
     print("[INFO] [iterateP] sum of P matrix: {0} (should be {1})".format(np.sum(data.P), data.C))
 
@@ -216,9 +216,9 @@ def getDocumentWordFreq(document, k_word):
 def calcZ(data, documents, n, i):
     ln_alpha_i = np.log(data.alpha[i])
     sum = 0
-    for k, k_word in enumerate(data.V_dict):
-        n_tk = getDocumentWordFreq(documents[n], k_word)
-        p_ik = data.P[i,k]
+    for word, freq in documents[n].n_tk.items():
+        n_tk = freq
+        p_ik = data.P[i, data.w2i[word]]
         value = n_tk * np.log(p_ik)
         sum += value
 
@@ -228,7 +228,7 @@ def calcZ(data, documents, n, i):
 
 
 def iterateW(data, documents):
-    time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    time = strftime("%H:%M:%S", gmtime())
     print("[INFO] [iterateW] start time: {0}".format(time))
     for n in range(data.N):
         z_j = np.random.random(data.C)  # random vector
@@ -248,7 +248,7 @@ def iterateW(data, documents):
         cand_w_ti = e_zi/sum_j
         data.w[n,:] = cand_w_ti
 
-    time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    time = strftime("%H:%M:%S", gmtime())
     print("[INFO] [iterateW] end time: {0}".format(time))
     print("[INFO] [iterateW] sum of w matrix: {0} (should be {1})".format(np.sum(data.w), data.N))
 
@@ -258,7 +258,7 @@ def eStep(data, documents):
 
 
 def calcLL(data, documents):
-    time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    time = strftime("%H:%M:%S", gmtime())
     print("[INFO] [calcLL] start time: {0}".format(time))
     sum_t = 0
     for n in range(data.N):
@@ -275,7 +275,7 @@ def calcLL(data, documents):
         value = m + np.log(sum_j)
         sum_t += value
 
-    time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+    time = strftime("%H:%M:%S", gmtime())
     print("[INFO] [calcLL] start time: {0}".format(time))
 
     return sum_t
@@ -289,11 +289,14 @@ if __name__ == '__main__':
 
     print("[INFO] Starting EM")
     for iter in range(ITERATIONS):
+        start_time = strftime("%H:%M:%S", gmtime())
         eStep(data, documents)
         mStep(data, documents)
         ll = calcLL(data, documents)
-        print("\tIter:{0} LL:{1}".format(iter, ll))
 
+        end_time = strftime("%H:%M:%S", gmtime())
+        print("\tIter:{0} s_time: {1}".format(iter, start_time))
+        print("\tIter:{0} e_time: {1} ll:{2}".format(iter, end_time, ll))
 
 
 
