@@ -3,12 +3,13 @@ import os
 import numpy as np
 import copy
 from time import gmtime, strftime
+import matplotlib.pyplot as plt
 
 
-EPS = 0.0001
-LAMBDA = 0.06
+EPS = 0.001
+LAMBDA = 0.1
 K = 10
-ITERATIONS = 10
+ITERATIONS = 30
 
 
 class Document:
@@ -281,6 +282,35 @@ def calcLL(data, documents):
     return sum_t
 
 
+def makeLLDashboard(ll_prog):
+    ll = np.asarray(ll_prog)
+    plt.plot(ll)
+    plt.ylabel('LL')
+    plt.xlabel('Iteration')
+    plt.title('Log-Likelihood relative to Iteration number')
+    plt.tight_layout()
+
+    plt.show()
+    plt.savefig('LL')
+
+
+def makePerplexityDashboard(ll_prog, data):
+    p = np.exp(-np.asarray(ll_prog)/data.N)
+    plt.plot(p)
+    plt.ylabel('Perplexity')
+    plt.xlabel('Iteration')
+    plt.title('Perplexity relative to Iteration number')
+    plt.tight_layout()
+
+    plt.show()
+    plt.savefig('LL')
+
+
+def makeStats(data, documents, ll_prog):
+    makeLLDashboard(ll_prog)
+    # makePerplexityDashboard(ll_prog, data)
+
+
 if __name__ == '__main__':
     develop_file_name = getArgs()
     documents, V_dict = loadDataSet(develop_file_name)
@@ -288,15 +318,20 @@ if __name__ == '__main__':
     mStep(data, documents)
 
     print("[INFO] Starting EM")
+    ll_prog = []
     for iter in range(ITERATIONS):
         start_time = strftime("%H:%M:%S", gmtime())
         eStep(data, documents)
         mStep(data, documents)
         ll = calcLL(data, documents)
+        ll_prog.append(ll)
 
         end_time = strftime("%H:%M:%S", gmtime())
         print("\tIter:{0} s_time: {1}".format(iter, start_time))
         print("\tIter:{0} e_time: {1} ll:{2}".format(iter, end_time, ll))
+
+    print("[INFO] Let's make some statistics")
+    makeStats(data, documents, ll_prog)
 
 
 
