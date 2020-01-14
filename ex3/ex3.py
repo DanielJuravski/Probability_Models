@@ -368,7 +368,7 @@ def buildMatrix(data, documents):
             t_idx = data.topic2index[t]
             conf[c][t_idx] += 1
 
-    if 'sns' in sys.modules:
+    if 'seaborn' in sys.modules:
         conf_df = pd.DataFrame(conf)
         conf_df.columns = data.topic2index.keys()
         cluster_size_df = pd.DataFrame(data.cluster_freq.values())
@@ -383,8 +383,8 @@ def buildMatrix(data, documents):
         plt.title('Confusion Matrix')
 
         plt.savefig('conf.png')
+        plt.show()
         plt.clf()
-        # plt.show()
 
     return conf
 
