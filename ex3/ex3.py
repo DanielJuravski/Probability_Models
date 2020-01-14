@@ -9,16 +9,14 @@ HW3 for Probabilistic Models Course
 '''
 
 import sys
-import os
 import numpy as np
 import copy
 from time import gmtime, strftime
-from datetime import datetime, date
+from datetime import datetime
 import matplotlib.pyplot as plt
 import os
-import time
 import pandas as pd
-import seaborn as sns
+#import seaborn as sns
 np.random.seed(0)
 
 EPS = 0.001
@@ -370,22 +368,23 @@ def buildMatrix(data, documents):
             t_idx = data.topic2index[t]
             conf[c][t_idx] += 1
 
-    conf_df = pd.DataFrame(conf)
-    conf_df.columns = data.topic2index.keys()
-    cluster_size_df = pd.DataFrame(data.cluster_freq.values())
-    cluster_size_df.columns = ['Cluster size']
-    mat_df = pd.concat([cluster_size_df, conf_df], axis=1)
-    mat_df.index = data.cluster_freq.keys()
-    mat_df.index.name = 'Cluster ID'
-    mat_df = mat_df.sort_values(by=['Cluster size'], ascending=False)
-    mat_df.to_csv('mat_df.csv')
-    print(mat_df)
-    sns.heatmap(mat_df[data.topic2index.keys()], annot=True, fmt='g')
-    plt.title('Confusion Matrix')
+    if 'sns' in sys.modules:
+        conf_df = pd.DataFrame(conf)
+        conf_df.columns = data.topic2index.keys()
+        cluster_size_df = pd.DataFrame(data.cluster_freq.values())
+        cluster_size_df.columns = ['Cluster size']
+        mat_df = pd.concat([cluster_size_df, conf_df], axis=1)
+        mat_df.index = data.cluster_freq.keys()
+        mat_df.index.name = 'Cluster ID'
+        mat_df = mat_df.sort_values(by=['Cluster size'], ascending=False)
+        mat_df.to_csv('mat_df.csv')
+        print(mat_df)
+        sns.heatmap(mat_df[data.topic2index.keys()], annot=True, fmt='g')
+        plt.title('Confusion Matrix')
 
-    plt.savefig('conf.png')
-    plt.clf()
-    # plt.show()
+        plt.savefig('conf.png')
+        plt.clf()
+        # plt.show()
 
     return conf
 
