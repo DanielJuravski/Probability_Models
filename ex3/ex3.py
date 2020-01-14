@@ -3,13 +3,18 @@ import os
 import numpy as np
 import copy
 from time import gmtime, strftime
+from datetime import datetime, date
 import matplotlib.pyplot as plt
+import os
+import time
+import pandas as pd
+import seaborn as sns
 
 
 EPS = 0.001
 LAMBDA = 0.1
 K = 10
-ITERATIONS = 30
+ITERATIONS = 40
 
 
 class Document:
@@ -18,6 +23,7 @@ class Document:
         self.gold_topics = []
         self.n_t = 0  # length of doc
         self.n_tk = dict()  # freq of words in doc
+        self.pred_cluster = -1
 
 
 class Data:
@@ -30,6 +36,9 @@ class Data:
         self.alpha = None  # vector of P(C_i)
         self.P = None  # matrix of P(W_k|C_i)
         self.w = None  # matrix of P(C_i|Y_t)
+        self.topic2index = {}
+        self.index2topic = {}
+        self.cluster_freq = {}
 
 
 def getArgs():
@@ -37,18 +46,46 @@ def getArgs():
     Get optional arg. If no arg was supplied, search for data set file at the current location
     """
 
-    if len(sys.argv) == 2:
+    if len(sys.argv) == 3:
         print("[INFO] Loading argument")
         develop_file_name = sys.argv[1]
+        topics_file_name = sys.argv[2]
     else:
         develop_file_name = 'develop.txt'
-        if not (os.path.exists(develop_file_name)):
-            print("[ERROR] No arguments were supplied and {0} file wasn't found in the current directory, exiting.".format(develop_file_name))
+        topics_file_name = 'topics.txt'
+        if not (os.path.exists(develop_file_name) or os.path.exists(topics_file_name)):
+            print("[ERROR] No arguments were supplied, file wasn't found in the current directory, exiting.".format())
             exit(1)
-        print("[INFO] No arguments were supplied, using {0} in the current directory".format(develop_file_name))
+        print("[INFO] No arguments were supplied, using files in the current directory".format())
 
-    return develop_file_name
+    return develop_file_name, topics_file_name
 
+
+def setTopicsAndClusters(data, documents, topics_file_name):
+    cluster_freq = {}  # cluster index to freq
+    index2topic = {}
+    topic2index = {}
+    with open(topics_file_name, 'r') as f:
+        lines = f.readlines()
+        lines = [line.strip('\n') for line in lines]
+        counter = 0
+        for line in lines:
+            if not line: continue
+            # topics_freq[line] = 0
+            index2topic[counter] = line
+            topic2index[line] = counter
+            cluster_freq[counter] = 0
+            counter += 1
+
+    # set cluster predictions to doc
+    for n in range(data.N):
+        pred_cluster = np.argmax(data.w[n])
+        documents[n].pred_cluster = pred_cluster
+        cluster_freq[pred_cluster] += 1
+
+    data.topic2index = topic2index
+    data.index2topic = index2topic
+    data.cluster_freq = cluster_freq
 
 def makeCleanV(V_dict):
     V = dict()
@@ -76,6 +113,7 @@ def loadDataSet(develop_file_name):
                 # that line is a topic line
                 line_details = line.split()
                 topics = line_details[2:]
+                topics[-1] = topics[-1][:-1]
             elif line == '\n':
                 # that line is just a blank line
                 pass
@@ -161,8 +199,7 @@ def initData(documents, V_dict):
 
 
 def iterateAlpha(data):
-    time = strftime("%H:%M:%S", gmtime())
-    print("[INFO] [iterateAlpha] start time: {0}".format(time))
+    s_time = strftime("%H:%M:%S", gmtime())
     for i in range(data.C):
         # for doc in documents:
         sum = np.sum(data.w[:,i])
@@ -173,30 +210,27 @@ def iterateAlpha(data):
 
     data.alpha /= np.sum(data.alpha)
 
-    time = strftime("%H:%M:%S", gmtime())
-    print("[INFO] [iterateAlpha] end time: {0}".format(time))
+    e_time = strftime("%H:%M:%S", gmtime())
+    print("[INFO] [iterateAlpha] time: {0}".format(datetime.strptime(e_time, '%H:%M:%S') - datetime.strptime(s_time, '%H:%M:%S')))
     print("[INFO] [iterateAlpha] sum of Alpha vector: {0} (should be {1})".format(np.sum(data.alpha), 1))
 
 
 def iterateP(data, documents):
-    time = strftime("%H:%M:%S", gmtime())
-    print("[INFO] [iterateP] start time: {0}".format(time))
+    s_time = strftime("%H:%M:%S", gmtime())
     for i in range(data.C):
-        p_i = np.random.random(data.V)  # random vector
-        sum_p_i = 0
+        p_ik = np.full(data.V, 0)
         for n in range(data.N):
-            p_i = np.full(data.V, LAMBDA)  # random vector
             w_ti = data.w[n, i]
             for word, freq in documents[n].n_tk.items():
                 n_tk = freq
-                p_i[data.w2i[word]] = w_ti * n_tk + LAMBDA
-            sum_p_i = np.sum(p_i)
+                p_ik[data.w2i[word]] += w_ti * n_tk
 
-        p_ik = p_i/sum_p_i
+        p_ik = p_ik + LAMBDA
+        p_ik = p_ik / np.sum(p_ik)
         data.P[i,:] = p_ik
 
-    time = strftime("%H:%M:%S", gmtime())
-    print("[INFO] [iterateP] end time: {0}".format(time))
+    e_time = strftime("%H:%M:%S", gmtime())
+    print("[INFO] [iterateP] time: {0}".format(datetime.strptime(e_time, '%H:%M:%S') - datetime.strptime(s_time, '%H:%M:%S')))
     print("[INFO] [iterateP] sum of P matrix: {0} (should be {1})".format(np.sum(data.P), data.C))
 
 
@@ -229,8 +263,7 @@ def calcZ(data, documents, n, i):
 
 
 def iterateW(data, documents):
-    time = strftime("%H:%M:%S", gmtime())
-    print("[INFO] [iterateW] start time: {0}".format(time))
+    s_time = strftime("%H:%M:%S", gmtime())
     for n in range(data.N):
         z_j = np.random.random(data.C)  # random vector
         for i in range(data.C):
@@ -249,8 +282,8 @@ def iterateW(data, documents):
         cand_w_ti = e_zi/sum_j
         data.w[n,:] = cand_w_ti
 
-    time = strftime("%H:%M:%S", gmtime())
-    print("[INFO] [iterateW] end time: {0}".format(time))
+    e_time = strftime("%H:%M:%S", gmtime())
+    print("[INFO] [iterateW] time: {0}".format(datetime.strptime(e_time, '%H:%M:%S') - datetime.strptime(s_time, '%H:%M:%S')))
     print("[INFO] [iterateW] sum of w matrix: {0} (should be {1})".format(np.sum(data.w), data.N))
 
 
@@ -259,8 +292,7 @@ def eStep(data, documents):
 
 
 def calcLL(data, documents):
-    time = strftime("%H:%M:%S", gmtime())
-    print("[INFO] [calcLL] start time: {0}".format(time))
+    s_time = strftime("%H:%M:%S", gmtime())
     sum_t = 0
     for n in range(data.N):
         z_j = np.random.random(data.C)  # random vector
@@ -276,8 +308,8 @@ def calcLL(data, documents):
         value = m + np.log(sum_j)
         sum_t += value
 
-    time = strftime("%H:%M:%S", gmtime())
-    print("[INFO] [calcLL] start time: {0}".format(time))
+    e_time = strftime("%H:%M:%S", gmtime())
+    print("[INFO] [calcLL] time: {0}".format(datetime.strptime(e_time, '%H:%M:%S') - datetime.strptime(s_time, '%H:%M:%S')))
 
     return sum_t
 
@@ -290,48 +322,127 @@ def makeLLDashboard(ll_prog):
     plt.title('Log-Likelihood relative to Iteration number')
     plt.tight_layout()
 
-    plt.show()
     plt.savefig('LL')
+    # plt.show()
 
 
-def makePerplexityDashboard(ll_prog, data):
-    p = np.exp(-np.asarray(ll_prog)/data.N)
+def makePerplexityDashboard(ll_prog, data, documents):
+    sum_ntk = 0
+    for n in range(data.N):
+        n_tk = documents[n].n_t
+        sum_ntk += n_tk
+    p = np.exp(-np.asarray(ll_prog)/(sum_ntk))
     plt.plot(p)
     plt.ylabel('Perplexity')
     plt.xlabel('Iteration')
     plt.title('Perplexity relative to Iteration number')
     plt.tight_layout()
 
-    plt.show()
-    plt.savefig('LL')
+    plt.savefig('Perplexity.png')
+    # plt.show()
 
 
 def makeStats(data, documents, ll_prog):
     makeLLDashboard(ll_prog)
-    # makePerplexityDashboard(ll_prog, data)
+    print("LL progress:{0}".format(ll_prog))
+
+    makePerplexityDashboard(ll_prog, data, documents)
+
+
+def buildMatrix(data, documents):
+    conf = np.zeros((data.C, data.C))  # random vector
+    for n in range(data.N):
+        topics = documents[n].gold_topics
+        c = documents[n].pred_cluster
+        for t in topics:
+            t_idx = data.topic2index[t]
+            conf[c][t_idx] += 1
+
+    conf_df = pd.DataFrame(conf)
+    conf_df.columns = data.topic2index.keys()
+    cluster_size_df = pd.DataFrame(data.cluster_freq.values())
+    cluster_size_df.columns = ['Cluster size']
+    mat_df = pd.concat([cluster_size_df, conf_df], axis=1)
+    mat_df.index = data.cluster_freq.keys()
+    mat_df.index.name = 'Cluster ID'
+    mat_df = mat_df.sort_values(by=['Cluster size'])
+    mat_df.to_csv('mat_df.csv')
+    print(mat_df)
+    sns.heatmap(mat_df[data.topic2index.keys()], annot=True)
+
+    plt.title('Confusion Matrix')
+    plt.savefig('conf.png')
+    # plt.show()
+    plt.close()
+
+    return conf
+
+
+def buildHistograms(conf, data):
+    c2t = {}
+    conf_df= pd.DataFrame(conf)
+    for c in range(9):
+        print("Making histogram for cluster {0}".format(c))
+        conf_df.T[c].plot.bar()
+        t = (conf_df.T[c]).idxmax()
+        c2t[c] = t
+        plt.title("Cluster {0} is Topic {1}".format(c, data.index2topic[t]))
+        plt.xlabel("Topic ID")
+
+        plt.savefig('hist_{0}.png'.format(c))
+        # plt.show()
+
+    return c2t
+
+
+def calcAcc(data, documents, c2t):
+    correct = 0
+    for n in range(data.N):
+        pred_c = documents[n].pred_cluster
+        pred_c_t = data.index2topic[c2t[pred_c]]
+        gold_topics = documents[n].gold_topics
+        if pred_c_t in gold_topics:
+            correct += 1
+
+    acc = correct / data.N * 100
+
+    print("Acc is {0:.2f}%".format(acc))
 
 
 if __name__ == '__main__':
-    develop_file_name = getArgs()
+    develop_file_name, topics_file_name = getArgs()
     documents, V_dict = loadDataSet(develop_file_name)
     data = initData(documents, V_dict)
     mStep(data, documents)
 
     print("[INFO] Starting EM")
+    s_time = strftime("%H:%M:%S", gmtime())
     ll_prog = []
     for iter in range(ITERATIONS):
-        start_time = strftime("%H:%M:%S", gmtime())
+        s_time = strftime("%H:%M:%S", gmtime())
         eStep(data, documents)
         mStep(data, documents)
         ll = calcLL(data, documents)
         ll_prog.append(ll)
 
-        end_time = strftime("%H:%M:%S", gmtime())
-        print("\tIter:{0} s_time: {1}".format(iter, start_time))
-        print("\tIter:{0} e_time: {1} ll:{2}".format(iter, end_time, ll))
+        e_time = strftime("%H:%M:%S", gmtime())
+        print("\tIter:{0} time: {1} ll: {2}".format(iter, (datetime.strptime(e_time, '%H:%M:%S') - datetime.strptime(s_time, '%H:%M:%S')), ll))
+
+    e_time = strftime("%H:%M:%S", gmtime())
+    print("[INFO] [EM] time: {0}".format(datetime.strptime(e_time, '%H:%M:%S') - datetime.strptime(s_time, '%H:%M:%S')))
 
     print("[INFO] Let's make some statistics")
     makeStats(data, documents, ll_prog)
+
+    # confusion matrix
+    setTopicsAndClusters(data, documents, topics_file_name)
+    conf = buildMatrix(data, documents)
+
+    # histograms
+    c2t = buildHistograms(conf, data)
+
+    # Acc
+    calcAcc(data, documents, c2t)
 
 
 
