@@ -1,3 +1,13 @@
+'''
+Students: Daniela Stepanov Daniel Juravski 308221720 206082323
+
+HW3 for Probabilistic Models Course
+
+
+14/01
+
+'''
+
 import sys
 import os
 import numpy as np
@@ -9,12 +19,12 @@ import os
 import time
 import pandas as pd
 import seaborn as sns
-
+np.random.seed(0)
 
 EPS = 0.001
-LAMBDA = 0.1
+LAMBDA = 1.0
 K = 10
-ITERATIONS = 40
+ITERATIONS = 20
 
 
 class Document:
@@ -53,7 +63,7 @@ def getArgs():
     else:
         develop_file_name = 'develop.txt'
         topics_file_name = 'topics.txt'
-        if not (os.path.exists(develop_file_name) or os.path.exists(topics_file_name)):
+        if not (os.path.exists(develop_file_name) and os.path.exists(topics_file_name)):
             print("[ERROR] No arguments were supplied, file wasn't found in the current directory, exiting.".format())
             exit(1)
         print("[INFO] No arguments were supplied, using files in the current directory".format())
@@ -323,6 +333,7 @@ def makeLLDashboard(ll_prog):
     plt.tight_layout()
 
     plt.savefig('LL')
+    plt.clf()
     # plt.show()
 
 
@@ -339,6 +350,7 @@ def makePerplexityDashboard(ll_prog, data, documents):
     plt.tight_layout()
 
     plt.savefig('Perplexity.png')
+    plt.clf()
     # plt.show()
 
 
@@ -365,15 +377,15 @@ def buildMatrix(data, documents):
     mat_df = pd.concat([cluster_size_df, conf_df], axis=1)
     mat_df.index = data.cluster_freq.keys()
     mat_df.index.name = 'Cluster ID'
-    mat_df = mat_df.sort_values(by=['Cluster size'])
+    mat_df = mat_df.sort_values(by=['Cluster size'], ascending=False)
     mat_df.to_csv('mat_df.csv')
     print(mat_df)
-    sns.heatmap(mat_df[data.topic2index.keys()], annot=True)
-
+    sns.heatmap(mat_df[data.topic2index.keys()], annot=True, fmt='g')
     plt.title('Confusion Matrix')
+
     plt.savefig('conf.png')
+    plt.clf()
     # plt.show()
-    plt.close()
 
     return conf
 
@@ -386,10 +398,11 @@ def buildHistograms(conf, data):
         conf_df.T[c].plot.bar()
         t = (conf_df.T[c]).idxmax()
         c2t[c] = t
-        plt.title("Cluster {0} is Topic {1}".format(c, data.index2topic[t]))
+        plt.title("Cluster {0} is Topic {1} (topic id: {2})".format(c, data.index2topic[t], t))
         plt.xlabel("Topic ID")
 
         plt.savefig('hist_{0}.png'.format(c))
+        plt.clf()
         # plt.show()
 
     return c2t
